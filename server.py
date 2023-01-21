@@ -1,5 +1,6 @@
 import socket
 import time
+import json
 
 
 class Server:
@@ -21,14 +22,16 @@ class Server:
                 print(f"Connected by {addr}")
                 while True:
                     self.update_uptime()
+
                     client_data = conn.recv(1024)
-                    if not client_data:
-                        break
+
                     server_response = self.response_data(client_data)
                     if not server_response:
                         break
-
-                    conn.sendall(bytes(server_response, 'utf-8'))
+                    else:
+                        server_response = json.dumps(server_response)
+                        print(f'Sending response in json: {server_response}')
+                        conn.sendall(bytes(server_response, 'utf-8'))
 
     def update_uptime(self):
         self.uptime = time.time() - self.time_start
