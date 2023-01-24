@@ -31,7 +31,7 @@ class DatabaseManager:
     def deserialize(cls):
         cls.db['users'] = [User(user['name'], user['password'], user['permission']) for user in cls.db['users']]
         cls.db['messages'] = [
-            Message(msg['sender'], msg['recipient'], msg['content'], msg['read_by_recipient'],
+            Message(msg['sender_name'], msg['recipient_name'], msg['content'], msg['read_by_recipient'],
                     datetime.datetime.strptime(msg['time_sent'], "%m/%d/%Y, %H:%M:%S")) for msg in cls.db['messages']]
 
     @classmethod
