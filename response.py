@@ -44,7 +44,6 @@ class Response:
 
     def set(self):
         self.parsed_input = ParsedData(self.input_data)
-        print(self.parsed_input)
 
         match self.parsed_input.command:
             case 'uptime':

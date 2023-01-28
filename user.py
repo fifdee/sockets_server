@@ -38,7 +38,10 @@ class User:
         sender_names = [msg.sender_name for msg in msgs]
         recipient_names = [msg.recipient_name for msg in msgs]
         unique_names = set(sender_names + recipient_names)
-        unique_names.remove(self.name)
+        try:
+            unique_names.remove(self.name)
+        except KeyError:
+            ...
 
         return unique_names
 
