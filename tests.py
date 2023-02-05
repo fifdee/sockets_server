@@ -1,74 +1,28 @@
-import datetime
-import os
 import unittest
 from unittest.mock import Mock
 
-from message import Message
+from database_manager_postgres import DatabaseManagerPostgres
 from response import Response
-from database_manager import DatabaseManager
 from user import User
 
 
-class DatabaseTest(unittest.TestCase):
+class ResponseWithTestDatabaseTest(unittest.TestCase):
     def setUp(self):
-        DatabaseManager.test = True
+        db_params = ("172.17.101.178", "test_server_db", "dev", "dev")
 
-    def tearDown(self):
-        DatabaseManager.remove_test_db()
-
-    def test_create_db_if_no_db_found(self):
-        DatabaseManager.read_db()
-        self.assertTrue(os.access('test_db.json', mode=os.F_OK))
-
-    def test_serializing_and_deserializing_user(self):
-        user1 = User('username1', 'pw1')
-        user2 = User('username2', 'pw2', 'ADMIN')
-
-        DatabaseManager.add_user(user1)
-        DatabaseManager.add_user(user2)
-        DatabaseManager.save_db()
-        DatabaseManager.db = None
-        DatabaseManager.read_db()
-
-        user1_from_db = User.get_user_by_name('username1')
-        self.assertEqual(user1.password, user1_from_db.password)
-        self.assertEqual(user1.permission, user1_from_db.permission)
-
-        user2_from_db = User.get_user_by_name('username2')
-        self.assertEqual(user2.password, user2_from_db.password)
-        self.assertEqual(user2.permission, user2_from_db.permission)
-
-    def test_serializing_and_deserializing_message(self):
-        time_sent = datetime.datetime.now()
-        message1 = Message('sender1', 'recipient1', 'message 1 content', read_by_recipient=False, time_sent=time_sent)
-        message2 = Message('sender2', 'recipient2', 'message 2 content', read_by_recipient=True, time_sent=time_sent)
-
-        DatabaseManager.add_message(message1)
-        DatabaseManager.add_message(message2)
-        DatabaseManager.save_db()
-        DatabaseManager.db = None
-        DatabaseManager.read_db()
-
-        messages_from_db = DatabaseManager.get_messages()
-        self.assertEqual(message1, messages_from_db[0])
-        self.assertEqual(message2, messages_from_db[1])
-
-
-class ResponseTest(unittest.TestCase):
-    def setUp(self):
         self.server = Mock()
         self.server.version = '0.0.1'
         self.server.uptime = 30.5
-        DatabaseManager.test = True
-        DatabaseManager.read_db()
-        DatabaseManager.add_user(User('username123', '123123'))
-        DatabaseManager.add_user(User('admin123', '456456', permission='ADMIN'))
-        DatabaseManager.add_user(User('user_with_full_mailbox', 'asdasd'))
+        self.db_mngr = DatabaseManagerPostgres(*db_params)
+        self.db_mngr.add_user(User('username123', '123123'))
+        self.db_mngr.add_user(User('admin123', '456456', permission='ADMIN'))
+        self.db_mngr.add_user(User('user_with_full_mailbox', 'asdasd'))
         for i in range(5):
             Response(f'whisper username123 123123 user_with_full_mailbox message number {i}', self.server)
 
     def tearDown(self):
-        DatabaseManager.remove_test_db()
+        self.db_mngr.clear_users_table()
+        self.db_mngr.clear_messages_table()
 
     def test_response_for_wrong_command(self):
         response = Response('  skakl \n oo', self.server)

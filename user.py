@@ -12,29 +12,35 @@ class User:
 
     @property
     def credentials_ok(self):
-        from database_manager import DatabaseManager
-        if self in DatabaseManager.get_users():
-            self.permission = User.get_user_by_name(self.name).permission
+        from database_manager_postgres import DatabaseManagerPostgres
+        user_from_db = DatabaseManagerPostgres.instance.get_user(self.name)
+
+        if user_from_db:
+            if self == user_from_db:
+                self.permission = user_from_db.permission
+                return True
+        return False
+
+    @property
+    def in_database(self):
+        from database_manager_postgres import DatabaseManagerPostgres
+        user_from_db = DatabaseManagerPostgres.instance.get_user(self.name)
+
+        if user_from_db:
             return True
         else:
             return False
 
     @property
-    def in_database(self):
-        from database_manager import DatabaseManager
-        return self.name in [user.name for user in DatabaseManager.get_users()]
-
-    @property
     def unread_messages(self):
-        from database_manager import DatabaseManager
-        return [msg for msg in DatabaseManager.get_messages() if
-                msg.recipient_name == self.name and not msg.read_by_recipient]
+        from database_manager_postgres import DatabaseManagerPostgres
+        unread_messages_from_db = DatabaseManagerPostgres.instance.get_unread_messages(self.name)
+        return unread_messages_from_db
 
     def get_conversations(self):
-        from database_manager import DatabaseManager
+        from database_manager_postgres import DatabaseManagerPostgres
 
-        msgs = [msg for msg in DatabaseManager.get_messages() if
-                msg.recipient_name == self.name or msg.sender_name == self.name]
+        msgs = DatabaseManagerPostgres.instance.get_messages(self.name)
         sender_names = [msg.sender_name for msg in msgs]
         recipient_names = [msg.recipient_name for msg in msgs]
         unique_names = set(sender_names + recipient_names)
@@ -46,36 +52,31 @@ class User:
         return unique_names
 
     def get_messages_with_other(self, other_name):
-        from database_manager import DatabaseManager
-
-        msgs = [msg for msg in DatabaseManager.get_messages() if
-                (msg.recipient_name == self.name and msg.sender_name == other_name) or
-                (msg.recipient_name == other_name and msg.sender_name == self.name)]
+        from database_manager_postgres import DatabaseManagerPostgres
+        msgs = DatabaseManagerPostgres.instance.get_messages(self.name, other_name)
 
         return msgs
 
     def get_unread_count(self):
-        from database_manager import DatabaseManager
-        unread_messages = [msg for msg in DatabaseManager.get_messages() if
-                           msg.recipient_name == self.name and not msg.read_by_recipient]
-        return len(unread_messages)
+        from database_manager_postgres import DatabaseManagerPostgres
+        unread_messages_from_db = DatabaseManagerPostgres.instance.get_unread_messages(self.name)
+        return len(unread_messages_from_db)
 
     @staticmethod
     def get_all_usernames():
-        from database_manager import DatabaseManager
-        return sorted([user.name for user in DatabaseManager.get_users()])
+        from database_manager_postgres import DatabaseManagerPostgres
+
+        return sorted(DatabaseManagerPostgres.instance.get_usernames())
 
     @staticmethod
     def get_user_by_name(name):
-        from database_manager import DatabaseManager
-        return [user for user in DatabaseManager.get_users() if user.name == name][0]
+        from database_manager_postgres import DatabaseManagerPostgres
+
+        return DatabaseManagerPostgres.instance.get_user(name)
 
     @staticmethod
     def get_messages(username1, username2):
-        from database_manager import DatabaseManager
-
-        msgs = [msg for msg in DatabaseManager.get_messages() if
-                (msg.recipient_name == username1 and msg.sender_name == username2) or
-                (msg.recipient_name == username2 and msg.sender_name == username1)]
+        from database_manager_postgres import DatabaseManagerPostgres
+        msgs = DatabaseManagerPostgres.instance.get_messages(username1, username2)
 
         return msgs

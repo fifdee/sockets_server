@@ -1,28 +1,25 @@
-import datetime
-import re
 import socket
-import string
 import time
-import json
 
-from database_manager import DatabaseManager
+from database_manager_postgres import DatabaseManagerPostgres
 from response import Response
 
 
 class Server:
-    def __init__(self, host, port, version='0.1.0'):
+    def __init__(self, host, port, version='0.1.0', db_params=None):
         self.host = host
         self.port = port
         self.version = version
         self.time_start = 0
         self.up = True
-        DatabaseManager.read_db()
+        self.db_mngr = DatabaseManagerPostgres(*db_params)
 
     @property
     def uptime(self):
         return time.time() - self.time_start
 
     def start(self):
+        self.db_mngr.connect()
         self.time_start = time.time()
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -39,7 +36,6 @@ class Server:
         server_response = Response(client_data, self)
 
         if not server_response.data:
-            DatabaseManager.save_db()
             self.up = False
         else:
             server_response.as_json

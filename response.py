@@ -1,7 +1,7 @@
 import json
 import re
 
-from database_manager import DatabaseManager
+from database_manager_postgres import DatabaseManagerPostgres
 from user import User
 from utils import ParsedData
 
@@ -96,8 +96,10 @@ class Response:
             user = User(name, pw)
             if user.in_database:
                 return 'This username is already taken.'
-            DatabaseManager.add_user(user)
-            return f'User created: {user.name}'
+            r = DatabaseManagerPostgres.instance.add_user(user)
+            if r[0]:
+                return f'User created: {user.name}'
+            return f'Error creating user: {r[1]}'
         return 'Make sure to provide username and password.'
 
     def credentials_check(self, inner):
@@ -119,6 +121,7 @@ class Response:
             for msg in unread:
                 r += f'\nFrom: "{msg.sender_name}", Message: "{msg.content}", Time sent: "{msg.time_sent}"'
                 msg.read_by_recipient = True
+                DatabaseManagerPostgres.instance.update_message(msg)
             return r
         return 'There are no new messages.'
 
@@ -130,8 +133,10 @@ class Response:
                     if User.get_user_by_name(recipient_name).get_unread_count() < 5:
                         if len(msg) <= 255:
                             from message import Message
-                            DatabaseManager.add_message(Message(user.name, recipient_name, msg))
-                            return f'Message "{msg}" sent to "{recipient_name}"'
+                            r = DatabaseManagerPostgres.instance.add_message(Message(user.name, recipient_name, msg))
+                            if r[0]:
+                                return f'Message "{msg}" sent to "{recipient_name}"'
+                            return f'Error creating message: {r[1]}'
                         return 'Too long message. Maximum character count is 255.'
                     return f'Mailbox of user "{recipient_name}" is full. You cannot send another message.'
                 return 'You cannot whisper yourself.'
