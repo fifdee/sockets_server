@@ -1,5 +1,5 @@
 import json
-import re
+import time
 
 from database_manager_postgres import DatabaseManagerPostgres
 from user import User
@@ -7,11 +7,18 @@ from utils import ParsedData
 
 
 class Response:
-    def __init__(self, input_data, server):
+    responses = []
+
+    def __init__(self, input_data, server, connection='', address=''):
         self.input_data = input_data
+        self.connection = connection
+        self.address = address
         self.server = server
         self.parsed_input = None
+
         self.data = self.set()
+
+        Response.responses.append(self)
 
     @property
     def input_data(self):
@@ -23,14 +30,6 @@ class Response:
             self._input_data = value.decode()
         else:
             self._input_data = value
-
-    @property
-    def data(self):
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        self._data = value
 
     @property
     def as_bytes(self):
@@ -115,13 +114,17 @@ class Response:
         return ', '.join(User.get_all_usernames())
 
     def unread_response(self, user):
+        t1 = time.perf_counter()
         unread = user.unread_messages
+        t2 = time.perf_counter()
         if len(unread) > 0:
             r = 'Unread messages:'
             for msg in unread:
                 r += f'\nFrom: "{msg.sender_name}", Message: "{msg.content}", Time sent: "{msg.time_sent}"'
                 msg.read_by_recipient = True
-                DatabaseManagerPostgres.instance.update_message(msg)
+            DatabaseManagerPostgres.instance.messages_as_read(user.name)
+            t3 = time.perf_counter()
+            print(f'get unread time: {round(t2 - t1, 2) * 1000} ms; update messages: {round(t3 - t2, 2) * 1000} ms')
             return r
         return 'There are no new messages.'
 

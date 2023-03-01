@@ -1,8 +1,8 @@
-import sys
+import time
 
-import psycopg2 as psycopg2
 from psycopg2 import Error
 
+from db_connection_pool import ConnectionPool
 from message import Message
 from user import User
 
@@ -11,30 +11,8 @@ class DatabaseManagerPostgres:
     instance = None
 
     def __init__(self, host, database, user, password):
-        self.host = host
-        self.database = database
-        self.user = user
-        self.password = password
-
+        self.connection_pool = ConnectionPool(host, database, user, password)
         DatabaseManagerPostgres.instance = self
-
-    def connect(self):
-        try:
-            conn = psycopg2.connect(
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password
-            )
-            cur = conn.cursor()
-            return conn, cur
-        except Error as error:
-            print("Error while connecting to PostgreSQL, shutting down server.", error)
-            sys.exit()
-
-    def disconnect(self, conn, cur):
-        cur.close()
-        conn.close()
 
     def deserialize(self, fetched_obj, fetched_obj_class):
         if fetched_obj_class == User:
@@ -71,27 +49,15 @@ class DatabaseManagerPostgres:
     def get_user(self, username):
         query = f"SELECT name, password, permission FROM users WHERE name = '{username}';"
 
-        try:
-            conn, cur = self.connect()
-            cur.execute(query)
-            r = cur.fetchall()
-            self.disconnect(conn, cur)
-            if len(r) > 0:
-                return self.deserialize(r[0], User)
-
-        except Error as e:
-            print(e)
+        r = self.connection_pool.send_query(query)
+        if len(r) > 0:
+            return self.deserialize(r[0], User)
         else:
             return None
 
     def get_usernames(self):
         query = "SELECT name FROM users;"
-        conn, cur = self.connect()
-        cur.execute(query)
-        r = cur.fetchall()
-        self.disconnect(conn, cur)
-
-        return [fetched_tuple[0] for fetched_tuple in r]
+        return [fetched_tuple[0] for fetched_tuple in self.connection_pool.send_query(query)]
 
     def get_messages(self, username1, username2=None):
         if username2:
@@ -101,57 +67,38 @@ class DatabaseManagerPostgres:
         else:
             query = f"SELECT sender_name, recipient_name, content, read_by_recipient, time_sent FROM messages " \
                     f"WHERE (sender_name = '{username1}' OR recipient_name = '{username1}');"
-        conn, cur = self.connect()
-        cur.execute(query)
-        r = cur.fetchall()
-        self.disconnect(conn, cur)
-        deserialized = [self.deserialize(x, Message) for x in r]
+
+        deserialized = [self.deserialize(x, Message) for x in self.connection_pool.send_query(query)]
         return deserialized
 
     def get_unread_messages(self, username):
         query = f"SELECT sender_name, recipient_name, content, read_by_recipient, time_sent FROM messages " \
                 f"WHERE (recipient_name = '{username}' AND read_by_recipient = false);"
-        conn, cur = self.connect()
-        cur.execute(query)
-        r = cur.fetchall()
-        self.disconnect(conn, cur)
-        deserialized = [self.deserialize(x, Message) for x in r]
+
+        deserialized = [self.deserialize(x, Message) for x in self.connection_pool.send_query(query)]
         return deserialized
 
     def add_user(self, user):
         serialized = self.serialize(user)
         query = f"INSERT INTO users (name, password, permission) values ('{serialized[0]}', '{serialized[1]}', " \
                 f"'{serialized[2]}');"
-        return self.send_commit_query(query)
+        return self.connection_pool.send_query(query)
 
     def add_message(self, msg):
         serialized = self.serialize(msg)
         query = f"INSERT INTO messages (sender_name, recipient_name, content, read_by_recipient, time_sent) values " \
                 f"('{serialized[0]}', '{serialized[1]}', '{serialized[2]}', {serialized[3]}, TIMESTAMP '{serialized[4]}');"
-        return self.send_commit_query(query)
+        return self.connection_pool.send_query(query)
 
-    def update_message(self, msg):
-        serialized = self.serialize(msg)
+    def messages_as_read(self, recipient_name):
         query = f"UPDATE messages SET read_by_recipient = true WHERE " \
-                f"(sender_name = '{serialized[0]}' AND recipient_name = '{serialized[1]}' AND time_sent = TIMESTAMP '{serialized[4]}');"
-        return self.send_commit_query(query)
-
-    def send_commit_query(self, query):
-        try:
-            conn, cur = self.connect()
-            cur.execute(query)
-            conn.commit()
-            self.disconnect(conn, cur)
-        except Error as e:
-            print(e)
-            return False, e
-        else:
-            return True, None
+                f"(recipient_name = '{recipient_name}');"
+        return self.connection_pool.send_query(query)
 
     def clear_users_table(self):
         query = 'TRUNCATE TABLE users;'
-        self.send_commit_query(query)
+        self.connection_pool.send_query(query)
 
     def clear_messages_table(self):
         query = 'TRUNCATE TABLE messages;'
-        self.send_commit_query(query)
+        self.connection_pool.send_query(query)

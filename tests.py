@@ -8,7 +8,7 @@ from user import User
 
 class ResponseWithTestDatabaseTest(unittest.TestCase):
     def setUp(self):
-        db_params = ("172.17.101.178", "test_server_db", "dev", "dev")
+        db_params = ("172.24.170.212", "test_server_db", "dev", "dev")
 
         self.server = Mock()
         self.server.version = '0.0.1'
