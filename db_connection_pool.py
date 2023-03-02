@@ -1,8 +1,5 @@
-import concurrent.futures
-import random
 import threading
 import time
-from datetime import datetime
 
 import psycopg2
 from psycopg2 import Error
