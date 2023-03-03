@@ -13,7 +13,7 @@ class ConnectionInfo:
 
 
 class ConnectionPool:
-    def __init__(self, host, database, user, password):
+    def __init__(self, host, database, user, password, time_limit_of_update_method='infinite'):
         self.host = host
         self.database = database
         self.user = user
@@ -23,24 +23,25 @@ class ConnectionPool:
         self.conn_infos = [ConnectionInfo(self._connect(), i) for i in range(self.connections_at_start)]
         self.returned_connections_count = 0
 
-        self.active = True
-        self.prev_t = time.perf_counter()
-        self.time_passed = 0
+        self.perform_update_method = True
+        self.previous_time = time.perf_counter()
+        self.time_from_initialization = 0
 
-        self.time_to_update = 30
+        self.time_limit_of_update_method = time_limit_of_update_method
 
         self.semaphore = threading.Semaphore()
 
-        t_updt = threading.Thread(target=self._update)
-        t_updt.start()
+        updating_thread = threading.Thread(target=self._update)
+        updating_thread.daemon = True
+        updating_thread.start()
 
-    def is_active(self):
-        return self.active
+    def is_performing_update_method(self):
+        return self.perform_update_method
 
     def _update(self):
-        while self.active:
-            delta = time.perf_counter() - self.prev_t
-            self.time_passed += delta
+        while self.perform_update_method:
+            delta = time.perf_counter() - self.previous_time
+            self.time_from_initialization += delta
 
             conns_to_delete = [conn for conn in self.conn_infos if
                                (not conn.in_use) and (conn.id >= self.connections_at_start)]
@@ -52,14 +53,14 @@ class ConnectionPool:
 
             print(f'Current conns count: {len(self.conn_infos)}, '
                   f'Returned conns: {self.returned_connections_count}, '
-                  f'time passed: {round(self.time_passed, 2)} s')
+                  f'time passed: {round(self.time_from_initialization, 2)} s')
 
-            self.prev_t = time.perf_counter()
+            self.previous_time = time.perf_counter()
             time.sleep(2)
 
-            if self.time_to_update != 'infinite':
-                if self.time_passed > self.time_to_update:
-                    self.active = False
+            if self.time_limit_of_update_method != 'infinite':
+                if self.time_from_initialization > self.time_limit_of_update_method:
+                    self.perform_update_method = False
 
     def _connect(self):
         try:
@@ -102,7 +103,8 @@ class ConnectionPool:
 
     def disconnect_all(self):
         self.semaphore.acquire()
+        self.perform_update_method = False
         for c in self.conn_infos:
             c.connection.close()
-        self.active = False
+        self.perform_update_method = False
         self.semaphore.release()

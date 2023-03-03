@@ -8,7 +8,7 @@ from user import User
 
 class ResponseWithTestDatabaseTest(unittest.TestCase):
     def setUp(self):
-        db_params = ("172.24.170.212", "test_server_db", "dev", "dev")
+        db_params = ("172.24.163.127", "test_server_db", "dev", "dev")
 
         self.server = Mock()
         self.server.version = '0.0.1'
@@ -23,6 +23,7 @@ class ResponseWithTestDatabaseTest(unittest.TestCase):
     def tearDown(self):
         self.db_mngr.clear_users_table()
         self.db_mngr.clear_messages_table()
+        self.db_mngr.stop_db_connections()
 
     def test_response_for_wrong_command(self):
         response = Response('  skakl \n oo', self.server)

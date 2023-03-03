@@ -1,5 +1,3 @@
-import time
-
 from psycopg2 import Error
 
 from db_connection_pool import ConnectionPool
@@ -10,19 +8,19 @@ from user import User
 class DatabaseManagerPostgres:
     instance = None
 
-    def __init__(self, host, database, user, password):
-        self.connection_pool = ConnectionPool(host, database, user, password)
+    def __init__(self, host, database, user, password, time_limit_of_db_conn_pool_update=None):
+        if not time_limit_of_db_conn_pool_update:
+            self.connection_pool = ConnectionPool(host, database, user, password)
+        else:
+            self.connection_pool = ConnectionPool(host, database, user, password, time_limit_of_db_conn_pool_update)
         self.queries = []
         DatabaseManagerPostgres.instance = self
 
-    def get_queries_count(self):
-        return len(self.queries)
-
-    def stop(self):
+    def stop_db_connections(self):
         self.connection_pool.disconnect_all()
 
     def is_active(self):
-        return self.connection_pool.is_active()
+        return self.connection_pool.is_performing_update_method()
 
     def _deserialize(self, fetched_obj, fetched_obj_class):
         if fetched_obj_class == User:
@@ -64,38 +62,39 @@ class DatabaseManagerPostgres:
                 cur.execute(query)
 
                 if query.split()[0] == "SELECT":
-                    r = cur.fetchall()
+                    response = cur.fetchall()
                     self.queries.append(True)
                     self.connection_pool.release_connection(conn)
-                    return r
+                    return response
                 else:
                     conn.commit()
                     self.queries.append(True)
                     self.connection_pool.release_connection(conn)
                     return True, None
             else:
-                # print('Could not obtain connection object, repeating')
+                # Could not obtain connection object, repeating query
                 return self._send_query(query)
 
         except Error as e:
-            # print(f'send_query() error, repeating: {e}')
+            # Error, repeating query
             return self._send_query(query)
 
     def get_user(self, username):
         query = f"SELECT name, password, permission FROM users WHERE name = '{username}';"
 
-        r = self._send_query(query)
-        if len(r) > 0:
-            return self._deserialize(r[0], User)
+        response = self._send_query(query)
+        if len(response) > 0:
+            return self._deserialize(response[0], User)
         else:
             return None
 
     def get_usernames(self):
         query = "SELECT name FROM users;"
-        r = self._send_query(query)
-        if type(r[0]) != bool:
-            return [fetched_tuple[0] for fetched_tuple in r]
-        return '..'
+        response = self._send_query(query)
+        try:
+            return [fetched_tuple[0] for fetched_tuple in response]
+        except Exception as e:
+            return ['Invalid response for "get_usernames()"', e]
 
     def get_messages(self, username1, username2=None):
         if username2:
@@ -106,22 +105,22 @@ class DatabaseManagerPostgres:
             query = f"SELECT sender_name, recipient_name, content, read_by_recipient, time_sent FROM messages " \
                     f"WHERE (sender_name = '{username1}' OR recipient_name = '{username1}');"
 
-        r = self._send_query(query)
-        if type(r[0]) != bool:
-            t = time.perf_counter()
-            deserialized = [self._deserialize(x, Message) for x in r]
-            print(round(time.perf_counter() - t, 8))
+        response = self._send_query(query)
+        try:
+            deserialized = [self._deserialize(x, Message) for x in response]
             return deserialized
-        return '..'
+        except Exception as e:
+            return ['Invalid response for "get_messages()"', e]
 
     def get_unread_messages(self, username):
         query = f"SELECT sender_name, recipient_name, content, read_by_recipient, time_sent FROM messages " \
                 f"WHERE (recipient_name = '{username}' AND read_by_recipient = false);"
 
-        t = time.perf_counter()
-        deserialized = [self._deserialize(x, Message) for x in self._send_query(query)]
-        print(round(time.perf_counter() - t, 8))
-        return deserialized
+        try:
+            deserialized = [self._deserialize(x, Message) for x in self._send_query(query)]
+            return deserialized
+        except Exception as e:
+            return ['Invalid response for "get_unread_messages()"', e]
 
     def add_user(self, user):
         serialized = self._serialize(user)
