@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 
-from database_manager_postgres import DatabaseManagerPostgres
+from database_manager_postgres import DatabaseManager
 from response import Response
 
 
@@ -26,7 +26,7 @@ class Server:
         self.version = version
         self.time_start = 0
         self.up = True
-        self.db_mngr = DatabaseManagerPostgres(*db_params)
+        self.db_mngr = DatabaseManager(*db_params)
         self.responses_no = 0
         self.concurrent_settings = concurrent_settings
 

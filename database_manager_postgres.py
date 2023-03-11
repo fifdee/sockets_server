@@ -1,11 +1,14 @@
+import time
+
 from psycopg2 import Error
+from sqlite3 import Error as Error_sqlite
 
 from db_connection_pool import ConnectionPool
 from message import Message
 from user import User
 
 
-class DatabaseManagerPostgres:
+class DatabaseManager:
     instance = None
 
     def __init__(self, host, database, user, password, time_limit_of_db_conn_pool_update=None):
@@ -14,7 +17,7 @@ class DatabaseManagerPostgres:
         else:
             self.connection_pool = ConnectionPool(host, database, user, password, time_limit_of_db_conn_pool_update)
         self.queries = []
-        DatabaseManagerPostgres.instance = self
+        DatabaseManager.instance = self
 
     def stop_db_connections(self):
         self.connection_pool.disconnect_all()
@@ -73,10 +76,13 @@ class DatabaseManagerPostgres:
                     return True, None
             else:
                 # Could not obtain connection object, repeating query
+                time.sleep(2)
                 return self._send_query(query)
 
-        except Error as e:
+        except Error or Error_sqlite as e:
             # Error, repeating query
+            print(e)
+            time.sleep(2)
             return self._send_query(query)
 
     def get_user(self, username):
@@ -131,7 +137,7 @@ class DatabaseManagerPostgres:
     def add_message(self, msg):
         serialized = self._serialize(msg)
         query = f"INSERT INTO messages (sender_name, recipient_name, content, read_by_recipient, time_sent) values " \
-                f"('{serialized[0]}', '{serialized[1]}', '{serialized[2]}', {serialized[3]}, TIMESTAMP '{serialized[4]}');"
+                f"('{serialized[0]}', '{serialized[1]}', '{serialized[2]}', {serialized[3]}, '{serialized[4]}');"
         return self._send_query(query)
 
     def messages_as_read(self, recipient_name):
@@ -140,9 +146,11 @@ class DatabaseManagerPostgres:
         return self._send_query(query)
 
     def clear_users_table(self):
-        query = 'TRUNCATE TABLE users;'
+        # query = 'TRUNCATE TABLE users;'
+        query = 'DELETE FROM users;'
         self._send_query(query)
 
     def clear_messages_table(self):
-        query = 'TRUNCATE TABLE messages;'
+        # query = 'TRUNCATE TABLE messages;'
+        query = 'DELETE FROM messages;'
         self._send_query(query)

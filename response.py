@@ -1,7 +1,7 @@
 import json
 import time
 
-from database_manager_postgres import DatabaseManagerPostgres
+from database_manager_postgres import DatabaseManager
 from user import User
 from utils import ParsedData
 
@@ -95,7 +95,7 @@ class Response:
             user = User(name, pw)
             if user.in_database:
                 return 'This username is already taken.'
-            r = DatabaseManagerPostgres.instance.add_user(user)
+            r = DatabaseManager.instance.add_user(user)
             if r[0]:
                 return f'User created: {user.name}'
             return f'Error creating user: {r[1]}'
@@ -122,7 +122,7 @@ class Response:
             for msg in unread:
                 r += f'\nFrom: "{msg.sender_name}", Message: "{msg.content}", Time sent: "{msg.time_sent}"'
                 msg.read_by_recipient = True
-            DatabaseManagerPostgres.instance.messages_as_read(user.name)
+            DatabaseManager.instance.messages_as_read(user.name)
             t3 = time.perf_counter()
             print(f'get unread time: {round(t2 - t1, 2) * 1000} ms; update messages: {round(t3 - t2, 2) * 1000} ms')
             return r
@@ -136,7 +136,7 @@ class Response:
                     if User.get_user_by_name(recipient_name).get_unread_count() < 5:
                         if len(msg) <= 255:
                             from message import Message
-                            r = DatabaseManagerPostgres.instance.add_message(Message(user.name, recipient_name, msg))
+                            r = DatabaseManager.instance.add_message(Message(user.name, recipient_name, msg))
                             if r[0]:
                                 return f'Message "{msg}" sent to "{recipient_name}"'
                             return f'Error creating message: {r[1]}'

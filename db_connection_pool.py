@@ -1,3 +1,4 @@
+import sqlite3
 import threading
 import time
 
@@ -20,6 +21,7 @@ class ConnectionPool:
         self.password = password
 
         self.connections_at_start = 5
+        self.max_connections = 50
         self.conn_infos = [ConnectionInfo(self._connect(), i) for i in range(self.connections_at_start)]
         self.returned_connections_count = 0
 
@@ -51,9 +53,15 @@ class ConnectionPool:
                 self.conn_infos.remove(c)
             self.semaphore.release()
 
+            additional_info = ''
+            if len(self.conn_infos) > self.max_connections:
+                additional_info = 'Max number of connections reached.'
+
             print(f'Current conns count: {len(self.conn_infos)}, '
                   f'Returned conns: {self.returned_connections_count}, '
-                  f'time passed: {round(self.time_from_initialization, 2)} s')
+                  f'time passed: {round(self.time_from_initialization, 2)} s, '
+                  f'{additional_info}'
+                  )
 
             self.previous_time = time.perf_counter()
             time.sleep(2)
@@ -63,22 +71,28 @@ class ConnectionPool:
                     self.perform_update_method = False
 
     def _connect(self):
-        try:
-            conn = psycopg2.connect(
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password,
-            )
-            return conn
-        except Error as error:
-            print("Error while connecting to Database.", error)
+        if self.host and self.database and self.user and self.password:
+            try:
+                conn = psycopg2.connect(
+                    host=self.host,
+                    database=self.database,
+                    user=self.user,
+                    password=self.password,
+                )
+                return conn
+            except Error as error:
+                print("Error while connecting to POSTGRESQL Database.", error)
+        elif self.database:
+            try:
+                conn = sqlite3.connect(self.database, check_same_thread=False)
+                return conn
+            except sqlite3.Error as error:
+                print("Error while connecting to SQLITE Database.", error)
 
     def get_connection(self):
         not_used = [conn for conn in self.conn_infos if not conn.in_use]
         if len(not_used) == 0:
-            if len(self.conn_infos) > 50:
-                print('Too many active DB connections (>50)')
+            if len(self.conn_infos) > self.max_connections:
                 return None
             else:
                 new = ConnectionInfo(self._connect(), len(self.conn_infos) + 1)
