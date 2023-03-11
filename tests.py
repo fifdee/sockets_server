@@ -1,20 +1,19 @@
 import unittest
 from unittest.mock import Mock
 
-from database_manager_postgres import DatabaseManager
+from database_manager import DatabaseManager
+from db_config import db_params
 from response import Response
 from user import User
 
 
 class ResponseWithTestDatabaseTest(unittest.TestCase):
     def setUp(self):
-        db_params = ("172.30.56.61", "test_server_db", "dev", "dev")
-        db_params_sqlite = (None, "server_db.db", None, None)
-
         self.server = Mock()
         self.server.version = '0.0.1'
         self.server.uptime = 30.5
-        self.db_mngr = DatabaseManager(*db_params_sqlite)
+
+        self.db_mngr = DatabaseManager(db_params[0], 'test_' + db_params[1], db_params[2], db_params[3])
         self.db_mngr.add_user(User('username123', '123123'))
         self.db_mngr.add_user(User('admin123', '456456', permission='ADMIN'))
         self.db_mngr.add_user(User('user_with_full_mailbox', 'asdasd'))

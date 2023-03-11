@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 
-from database_manager_postgres import DatabaseManager
+from database_manager import DatabaseManager
 from response import Response
 
 

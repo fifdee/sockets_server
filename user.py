@@ -12,7 +12,7 @@ class User:
 
     @property
     def credentials_ok(self):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
         user_from_db = DatabaseManager.instance.get_user(self.name)
 
         if user_from_db:
@@ -23,7 +23,7 @@ class User:
 
     @property
     def in_database(self):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
         user_from_db = DatabaseManager.instance.get_user(self.name)
 
         if user_from_db:
@@ -33,12 +33,12 @@ class User:
 
     @property
     def unread_messages(self):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
         unread_messages_from_db = DatabaseManager.instance.get_unread_messages(self.name)
         return unread_messages_from_db
 
     def get_conversations(self):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
 
         msgs = DatabaseManager.instance.get_messages(self.name)
         sender_names = [msg.sender_name for msg in msgs]
@@ -52,31 +52,31 @@ class User:
         return unique_names
 
     def get_messages_with_other(self, other_name):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
         msgs = DatabaseManager.instance.get_messages(self.name, other_name)
 
         return msgs
 
     def get_unread_count(self):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
         unread_messages_from_db = DatabaseManager.instance.get_unread_messages(self.name)
         return len(unread_messages_from_db)
 
     @staticmethod
     def get_all_usernames():
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
 
         return sorted(DatabaseManager.instance.get_usernames())
 
     @staticmethod
     def get_user_by_name(name):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
 
         return DatabaseManager.instance.get_user(name)
 
     @staticmethod
     def get_messages(username1, username2):
-        from database_manager_postgres import DatabaseManager
+        from database_manager import DatabaseManager
         msgs = DatabaseManager.instance.get_messages(username1, username2)
 
         return msgs

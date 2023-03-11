@@ -1,7 +1,7 @@
 import json
 import time
 
-from database_manager_postgres import DatabaseManager
+from database_manager import DatabaseManager
 from user import User
 from utils import ParsedData
 

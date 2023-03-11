@@ -1,18 +1,18 @@
 import threading
 import time
 
-import database_manager_postgres
+import database_manager
+from db_config import db_params
 
 if __name__ == "__main__":
     # RUN THIS SCRIPT TO STRESS TEST DATABASE CONNECTION POOL WITH MULTIPLE CONCURRENT QUERIES
-    # db_manager = database_manager_postgres.DatabaseManager("172.30.56.61", "server_db", "dev", "dev", 300)
-    db_manager = database_manager_postgres.DatabaseManager(None, "server_db.db", None, None, 300)
 
+    db_manager = database_manager.DatabaseManager(*db_params, time_limit_of_db_conn_pool_update=300)
 
     def perform_database_query():
         # THOUSANDS OF USERNAMES SO IT SHOULD TAKE A WHILE
-        r = db_manager.get_usernames()
-        return r
+        response = db_manager.get_usernames()
+        return response
 
 
     start_time = time.perf_counter()
